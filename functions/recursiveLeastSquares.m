@@ -1,4 +1,4 @@
-function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
+function idtf = recursiveLeastSquares(U,Y,Ts,num_zeros,num_poles,option)
 %RECURSIVELEASTSQUARES Identify the system parameters for a given system
 % input and output using recursive least squares method.
 %
@@ -8,33 +8,47 @@ function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
 % G(z) =  ---------------------------------------------------
 %                1 + a1*z^-1 + ... + a_na*z^-na
 %
-% [a,b,D] = RECURSIVELEASTSQUARES(U,Y) returns estimated parameters and dead-time.
+% idtf = RECURSIVELEASTSQUARES(U,Y) identifies discrete-time system's tf
+%   
 %
-% [a,b,D] = RECURSIVELEASTSQUARES(U,Y,num_zeros,num_poles) returns 
+% idtf = RECURSIVELEASTSQUARES(U,Y,num_zeros,num_poles) returns 
 % estimated parameters for a model of a specified order.
 %
-% [a,b,D] = RECURSIVELEASTSQUARES(U,Y, 'PlotConvergence', False)
+% idtf = RECURSIVELEASTSQUARES(U,Y, 'PlotConv', False)
 % turns off plotting of parameters convergence.
 %
+% idtf - structure array with following fields:
+%        Numerator - row vector of numerator's polynomial coefficients;
+%        Denominator - row vector of denominator's polynomial coefficients;
+%        Variable - tf display variable;
+%        IODelay - transport delay;
+%        Structure - output system model;
+%        Ts - sampling time;
+
     arguments
-        U                       (:,1) double {mustBeNumeric, mustBeReal}
-        Y                       (:,1) double {mustBeNumeric, mustBeReal}
-        num_zeros               (1,1) double {mustBeNumeric, mustBeReal} = 1
-        num_poles               (1,1) double {mustBeNumeric, mustBeReal, mustBeGreaterThanOrEqual(num_poles,num_zeros)} = 1
-        option.PlotConvergence  (1,1) logical = true
+        U                    (:,1) double {mustBeNumeric, mustBeReal}
+        Y                    (:,1) double {mustBeNumeric, mustBeReal}
+        Ts                   (1,1) double {mustBeNumeric, mustBeReal}
+        num_zeros            (1,1) double {mustBeNumeric, mustBeReal} = 1
+        num_poles            (1,1) double {mustBeNumeric, mustBeReal, ...
+                              mustBeGreaterThanOrEqual(num_poles,num_zeros)} ...
+                              = 1
+        option.PlotConv      (1,1) logical = true
     end
    
     nu = num_poles + num_zeros;
 
-    theta_old   = zeros(nu, 1);                  % Initial Parameters
+    %% Initial conditions
+    theta_old   = zeros(nu, 1);                  % Initial Parameters Estimate
     P_old       = 10^6 * eye(nu, nu);            % Initial Covariance Matrix
-    Z           = zeros(nu, length(U));          % Initial Z
-    a           = zeros(num_poles, length(U));
-    b           = zeros(num_zeros, length(U));
+    Z           = zeros(nu, length(U));          % Allocate memory for data matrix
+    a           = zeros(num_poles, length(U));   % Allocate memory for poles 
+    b           = zeros(num_zeros, length(U));   % Allocate memory for zeros
 
-    % find D
+    %% find D
     if find(Y > 1,1) > 1
-        D = find(Y > 1,1)-2;         % -2 correction for time starting in 0 and last element < 1
+        % -2 correction for time starting in 0 and last element < 1
+        D = find(Y > 1,1)-2;         
     else
         D = 0;
     end
@@ -60,11 +74,15 @@ function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
             end
         end
         
-        % Estimation 
+        %% Estimation 
+        % vector of auxiliary variables - filtered vector from data
         epsilon  = y(n) - Z(:,n)' * theta_old;
-        gamma    = 1 + Z(:,n)' * P_old * Z(:,n);             % scalar
-        L        = gamma \ P_old * Z(:,n);                   % gain of filter
+        gamma    = 1 + Z(:,n)' * P_old * Z(:,n);            % scalar
+        % gain of filter in current step
+        L        = gamma \ P_old * Z(:,n);                  
+        % update covariace matrix
         P        = P_old - gamma \ P_old * Z(:,n) * Z(:,n)' * P_old;
+        % update parameter estimate
         theta    = theta_old + L * epsilon;
         
         P_old = P;
@@ -76,12 +94,9 @@ function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
        
     end           
     
-    Ts = 1;
-    
-    % Plot
+    %% Plot
     % Check the estimated T.F.
     y_est = lsim(tf(b(:,end)',[1 a(:,end)'],Ts,'iodelay',D,'variable','z^-1'),U);
-    %step(tf(b(:,end),[1 a(:,end)],Ts, 'TimeUnit','minutes','InputUnit','minutes','iodelay',D,'variable','z^-1'),length(U))
     % Compare the actual and estimated systems outputs
     f = figure;
     f.Position = [100 100 960 540];
@@ -89,15 +104,17 @@ function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
     grid on 
     hold on
     
-    plot(Y(1:end),'--')
-    plot(y_est(1:end),'-')
+    plot(Y(1:end), '--', 'LineWidth', 2)
+    plot(y_est(1:end), '-', 'LineWidth', 2)
     
-    xlabel('Time [min]')
-    ylabel('Calibrated Production Rate [ton/h]')
+    xlabel('Sample time')
+    ylabel('Response')
     title([num2str(num_poles),'. Order Systems Model'], 'FontWeight','Normal')
-    legend('Systems real measurement',[num2str(num_poles),'. Order Systems Model']) 
+    legend('Systems real measurement', ...
+           [num2str(num_poles), ...
+           '. Order Systems Model']) 
     
-    if option.PlotConvergence
+    if option.PlotConv
         
         % Convergence of parameters
         f = figure;
@@ -105,13 +122,13 @@ function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
         hold on
         
         for m = 1:size(a)
-            plot(a(m,:))
+            plot(a(m,:), 'LineWidth', 2)
             yline(a(m,end),'--','color','k')
             
             grid on
             title('Parameter convergence a_i', 'FontWeight','Normal')
-            xlabel('Time [min]')
-            ylabel('Parameter')
+            xlabel('Sample time')
+            ylabel('Parameter Value')
             
             legend_names{m*2-1} = append('a_',num2str(m));
             legend_names{m*2} = '';
@@ -122,14 +139,15 @@ function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
         f.Position = [100 100 960 540];
         hold on
         
+        clear legend_names
         for m = 1:size(b)
-            plot(b(m,:))
+            plot(b(m,:), 'LineWidth', 2)
             yline(b(m,end),'--','color','k')
             
             grid on
             title('Parameter convergence b_i', 'FontWeight','Normal')
-            xlabel('Time [min]')
-            ylabel('Parameter')
+            xlabel('Sample time')
+            ylabel('Parameter Value')
             
             legend_names{m*2-1} = append('b_',num2str(m));
             legend_names{m*2} = '';
@@ -137,4 +155,24 @@ function [a,b,D] = recursiveLeastSquares(U,Y,num_zeros,num_poles,option)
         legend(legend_names)
         
     end
+    
+    %% Returns
+    idtf.SysDT          = tf(b(:,end)',[1 a(:,end)'],Ts, ...
+                             'iodelay',D, ...
+                             'variable','z^-1');
+    idtf.NumDT          = b(:,end)';
+    idtf.DenDT          = [1 a(:,end)'];
+    idtf.Ts             = Ts;
+    idtf.IODelay        = D;
+    idtf.Variable       = 'z^-1';
+    idtf.SysCT          = d2c(idtf.SysDT);
+    idtf.NumCT          = cell2mat(idtf.SysCT.Numerator);
+    idtf.DenCT          = cell2mat(idtf.SysCT.Denominator);
+    [z,p,k]             = zpkdata(idtf.SysCT);
+    idtf.SysZPK         = zpk(z,p,k,'DisplayFormat','time constant');
+    %idtf.T              = 1/damp(idtf.SysCT);
+    %idtf.K             = b(:,end) / (1-exp(-Ts/idtf.T));
+    
+    
+    
 end

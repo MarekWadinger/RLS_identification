@@ -1,0 +1,16 @@
+{
+  "name": "rls-identification",
+  "version": "1.0.0",
+  "description": "Recursive Least Squares algorithm for system parameter identification",
+  "authors": ["MarekWadinger"],
+  "license": "MIT",
+  "homepage": "https://github.com/MarekWadinger/RLS_identification",
+  "matlab": ">=R2019b",
+  "platforms": {
+    "all": {}
+  },
+  "dependencies": {},
+  "publish": {
+    "exclude": [".git", ".github", "tests", "docs", "*.mat", "*.slx"]
+  }
+}

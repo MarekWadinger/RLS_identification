@@ -1,0 +1,16 @@
+name: Publish to tbxmanager
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: MarekWadinger/tbxmanager-publish@v1
+        with:
+          registry-token: ${{ secrets.TBXMANAGER_REGISTRY_TOKEN }}

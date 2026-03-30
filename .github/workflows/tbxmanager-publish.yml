@@ -1,3 +1,9 @@
+# Automated publish to tbxmanager registry on release.
+# Requires TBXMANAGER_REGISTRY_TOKEN secret with write access to
+# MarekWadinger/tbxmanager-registry (for repo owner/collaborators only).
+#
+# Community contributors: submit via the issue form instead:
+# https://github.com/MarekWadinger/tbxmanager-registry/issues/new?template=submit-package.yml
 name: Publish to tbxmanager
 
 on:

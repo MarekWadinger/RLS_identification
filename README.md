@@ -12,6 +12,16 @@ This project provides a MATLAB implementation of the Recursive Least Squares (RL
 
 ## Installation
 
+### Via tbxmanager (recommended)
+
+```matlab
+tbxmanager install rls-identification
+```
+
+See [tbxmanager.com](https://tbxmanager.com/getting-started) if you don't have tbxmanager yet.
+
+### From source
+
 1. Clone the repository:
 
     ```sh
